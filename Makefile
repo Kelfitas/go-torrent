@@ -4,11 +4,11 @@ install:
 	go get $(INSTALL_ARGS)
 
 run: install
-	go run $(RUN_ARGS) main.go
+	go run $(RUN_ARGS) *.go
 
 build: install
 	GOOS=$(GOOS) GOARCH=$(GOARCH) \
-    go build $(BUILD_ARGS) main.go
+    go build $(BUILD_ARGS) *.go
 
 build-win32: GOOS=windows
 build-win32: GOARCH=386
