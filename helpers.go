@@ -2,9 +2,12 @@ package main
 
 import (
 	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
+	"os"
 )
 
 func handleError(e error) {
@@ -58,4 +61,57 @@ func isTCPPortAvailable(port int) bool {
 	}
 
 	return true
+}
+
+func getListenPort() (port int, err error) {
+	start := 6881
+	end := 6889
+
+	for port = start; port <= end; port++ {
+		if isTCPPortAvailable(port) {
+			return
+		}
+	}
+
+	err = errors.New("no listening port available")
+	return
+}
+
+func getNetString() string {
+	var netString string
+
+	ifaces, err := net.Interfaces()
+	handleError(err)
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		handleError(err)
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			netString += ip.String()
+		}
+	}
+
+	return netString
+}
+
+func getPeerID() (peerID string) {
+	hostName, err := os.Hostname()
+	handleError(err)
+
+	netString := getNetString()
+
+	peerID = hostName + ":"
+	peerID += netString + ":"
+
+	peerID = hex.EncodeToString(hashString(peerID))
+	peerID = peerID[:20]
+
+	return
 }

@@ -1,13 +1,5 @@
 package main
 
-import (
-	"errors"
-	"net"
-	"os"
-
-	"encoding/hex"
-)
-
 const (
 	eventStarted   = "started"
 	eventCompleted = "completed"
@@ -16,69 +8,15 @@ const (
 	compactResponse = true
 )
 
-var torrent Torrent
-
-func getNetString() string {
-	var netString string
-
-	ifaces, err := net.Interfaces()
-	handleError(err)
-
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		handleError(err)
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			netString += ip.String()
-		}
-	}
-
-	return netString
-}
-
-func getPeerID() (peerID string) {
-	hostName, err := os.Hostname()
-	handleError(err)
-
-	netString := getNetString()
-
-	peerID = hostName + ":"
-	peerID += netString + ":"
-
-	peerID = hex.EncodeToString(hashString(peerID))
-	peerID = peerID[:20]
-
-	return
-}
-
-func getListenPort() (port int, err error) {
-	start := 6881
-	end := 6889
-
-	for port = start; port <= end; port++ {
-		if isTCPPortAvailable(port) {
-			return
-		}
-	}
-
-	err = errors.New("no Listening port available")
-	return
-}
+var torrent [1]Torrent
 
 func main() {
 	sampleTorrent := "/Users/cioatamihai/Downloads/Sex.Drive.Unrated.2008.1080p.BluRay.x264.AC3.RoSubbed-HDChina.torrent"
-	err := torrent.parseTorrentFile(sampleTorrent)
+	err := torrent[0].parseTorrentFile(sampleTorrent)
 	handleError(err)
 
-	torrent.Announce()
-
-	prettyPrint(torrent.Response)
+	torrent[0].AnnounceStart()
+	prettyPrint(torrent[0].Response)
 }
 
 // announce — the URL of the tracker

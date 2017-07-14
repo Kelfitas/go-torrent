@@ -14,6 +14,8 @@ import (
 	bencode "github.com/jackpal/bencode-go"
 )
 
+const userAgent = "uTorrentMac/1870(42417)"
+
 type FileDict struct {
 	Length int64    `bencode:"length"`
 	Path   []string `bencode:"path"`
@@ -152,12 +154,10 @@ func (t *Torrent) getInfoHash() string {
 }
 
 func (t *Torrent) buildAnnounceURL(event string) (url *url.URL) {
-	var u string
-
 	listenPort, err := getListenPort()
 	handleError(err)
 
-	u = t.Meta.Announce
+	u := t.Meta.Announce
 	u += "?info_hash=" + t.getInfoHash()
 	u += "&peer_id=" + getPeerID()
 	u += "&port=" + strconv.Itoa(listenPort)
@@ -179,7 +179,7 @@ func (t *Torrent) buildAnnounceURL(event string) (url *url.URL) {
 	return
 }
 
-func (t *Torrent) Announce() {
+func (t *Torrent) AnnounceStart() {
 	url := t.buildAnnounceURL(eventStarted)
 
 	client := &http.Client{}
@@ -187,7 +187,7 @@ func (t *Torrent) Announce() {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	handleError(err)
 
-	req.Header.Add("User-Agent", "uTorrentMac/1870(42417)")
+	req.Header.Add("User-Agent", userAgent)
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Connection", "close")
 
