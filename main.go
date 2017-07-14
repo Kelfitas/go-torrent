@@ -1,111 +1,22 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"errors"
-	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 
 	"encoding/hex"
-
-	bencode "github.com/jackpal/bencode-go"
 )
 
-type FileDict struct {
-	Length int64    `bencode:"length"`
-	Path   []string `bencode:"path"`
-	Md5sum string
-}
+const (
+	eventStarted   = "started"
+	eventCompleted = "completed"
+	eventStopped   = "stopped"
 
-type InfoDict struct {
-	PieceLength int64 `bencode:"piece length"`
-	Pieces      string
-	Private     int64
-	Name        string
-	// Single File Mode
-	Length int64
-	Md5sum string
-	// Multiple File mode
-	Files        []FileDict
-	FileDuration []int64
-	FileMedia    []string
-}
-
-type MetaInfo struct {
-	Info         InfoDict
-	InfoHash     string
-	Announce     string
-	AnnounceList [][]string `bencode:"announce-list"`
-	CreationDate int64      `bencode:"creation date"`
-	Comment      string
-	CreatedBy    string `bencode:"created by"`
-	Encoding     string
-}
-
-type AnnounceResponse struct {
-	FailureReason string `bencode:"failure reason"`
-	MinInterval   int64  `bencode:"min interval"`
-	Interval      int64  `bencode:"interval"`
-	Message       []byte
-}
-
-type Torrent struct {
-	Meta     MetaInfo
-	Response AnnounceResponse
-	File     string
-}
+	compactResponse = true
+)
 
 var torrent Torrent
-
-func parseTorrentFile(filename string, t *Torrent) (err error) {
-	t.File = filename
-
-	f, err := os.Open(filename)
-	handleError(err)
-	defer f.Close()
-
-	reader := bufio.NewReader(f)
-	info, err := bencode.Decode(reader)
-	handleError(err)
-
-	topMap, ok := info.(map[string]interface{})
-	if !ok {
-		err = errors.New("couldn't parse torrent file")
-		return
-	}
-
-	infoMap, ok := topMap["info"]
-	if !ok {
-		err = errors.New("no info dict")
-		return
-	}
-
-	var b bytes.Buffer
-	if err = bencode.Marshal(&b, infoMap); err != nil {
-		return
-	}
-
-	t.Meta.InfoHash = string(hashBytes(b.Bytes()))
-
-	err = bencode.Unmarshal(&b, &t.Meta.Info)
-	if err != nil {
-		return
-	}
-
-	t.Meta.Announce = getMapString(topMap, "announce")
-
-	return
-}
-
-func getInfoHash(t *Torrent) string {
-	return url.QueryEscape(t.Meta.InfoHash)
-}
 
 func getNetString() string {
 	var netString string
@@ -146,25 +57,6 @@ func getPeerID() (peerID string) {
 	return
 }
 
-const (
-	minTCPPort = 0
-	maxTCPPort = 65535
-)
-
-func isTCPPortAvailable(port int) bool {
-	if port < minTCPPort || port > maxTCPPort {
-		return false
-	}
-
-	conn, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-	defer conn.Close()
-	if err != nil {
-		return false
-	}
-
-	return true
-}
-
 func getListenPort() (port int, err error) {
 	start := 6881
 	end := 6889
@@ -179,70 +71,12 @@ func getListenPort() (port int, err error) {
 	return
 }
 
-func buildAnnounceURL(t *Torrent) (url *url.URL) {
-	var u string
-
-	// fmt.Printf("t.Meta.Info: %s\n", hex.EncodeToString([]byte(t.Meta.InfoHash)))
-	// fmt.Println("uTorrent:    647dc25f88db008dec98c4d60ba68c71ea07162b")
-
-	listenPort, err := getListenPort()
-	handleError(err)
-
-	u = t.Meta.Announce
-	u += "?info_hash=" + getInfoHash(t)
-	u += "&peer_id=" + getPeerID()
-	u += "&port=" + strconv.Itoa(listenPort)
-	u += "&uploaded=0"
-	u += "&downloaded=0"
-	u += "&left=0"
-	u += "&corrupt=0"
-	// u += "&key=02146AFD"
-	u += "&event=started"
-	// u += "&numwant=200"
-	// u += "&no_peer_id=1"
-	u += "&compact=1"
-	// u += "&ipv6=fe80%3a%3ac9b%3a501d%3a61bb%3a4d4c"
-
-	url, err = url.Parse(u)
-	handleError(err)
-
-	return
-}
-
-func Announce(t *Torrent) {
-	url := buildAnnounceURL(t)
-
-	client := &http.Client{}
-	fmt.Printf("GET: %s\n", url.String())
-	req, err := http.NewRequest("GET", url.String(), nil)
-	handleError(err)
-
-	req.Header.Add("User-Agent", "uTorrentMac/1870(42417)")
-	req.Header.Add("Accept-Encoding", "gzip")
-	req.Header.Add("Connection", "close")
-
-	resp, err := client.Do(req)
-	handleError(err)
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-
-	var b bytes.Buffer
-	b.Write(body)
-
-	err = bencode.Unmarshal(&b, &t.Response)
-	if err != nil {
-		t.Response.Message = body
-	}
-}
-
 func main() {
 	sampleTorrent := "/Users/cioatamihai/Downloads/Sex.Drive.Unrated.2008.1080p.BluRay.x264.AC3.RoSubbed-HDChina.torrent"
-	err := parseTorrentFile(sampleTorrent, &torrent)
+	err := torrent.parseTorrentFile(sampleTorrent)
 	handleError(err)
 
-	Announce(&torrent)
+	torrent.Announce()
 
 	prettyPrint(torrent.Response)
 }

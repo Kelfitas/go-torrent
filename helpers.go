@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"net"
 )
 
 func handleError(e error) {
@@ -38,4 +39,23 @@ func hashBytes(b []byte) []byte {
 
 func hashString(b string) []byte {
 	return hashBytes([]byte(b))
+}
+
+const (
+	minTCPPort = 0
+	maxTCPPort = 65535
+)
+
+func isTCPPortAvailable(port int) bool {
+	if port < minTCPPort || port > maxTCPPort {
+		return false
+	}
+
+	conn, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	defer conn.Close()
+	if err != nil {
+		return false
+	}
+
+	return true
 }
