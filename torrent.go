@@ -16,64 +16,17 @@ import (
 
 const userAgent = "uTorrentMac/1870(42417)"
 
-type FileDict struct {
-	Length int64    `bencode:"length"`
-	Path   []string `bencode:"path"`
-	Md5sum string
-}
-
-type InfoDict struct {
-	PieceLength int64 `bencode:"piece length"`
-	Pieces      string
-	Private     int64
-	Name        string
-	// Single File Mode
-	Length int64
-	Md5sum string
-	// Multiple File mode
-	Files        []FileDict
-	FileDuration []int64
-	FileMedia    []string
-}
-
-type MetaInfo struct {
-	Info         InfoDict
-	InfoHash     string
-	Announce     string
-	AnnounceList [][]string `bencode:"announce-list"`
-	CreationDate int64      `bencode:"creation date"`
-	Comment      string
-	CreatedBy    string `bencode:"created by"`
-	Encoding     string
-}
-
-type PeerDict struct {
-	PeerID string `bencode:"peer id"`
-	IP     string `bencode:"ip"`
-	Port   int    `bencode:"port"`
-}
-
-type AnnounceResponse struct {
-	FailureReason string     `bencode:"failure reason"`
-	MinInterval   int64      `bencode:"min interval"`
-	Interval      int64      `bencode:"interval"`
-	Peers         []PeerDict `bencode:"peers"`
-	Body          []byte
-}
-
-type Stats struct {
-	Uploaded   int
-	Downloaded int
-	Left       int
-	Corrupt    int
-}
-
-type Torrent struct {
-	Meta     MetaInfo
-	Response AnnounceResponse
-	File     string
-	Stats    Stats
-}
+const (
+	peerChoke         = iota // 0 - choke
+	peerUnchoke              // 1 - unchoke
+	peerInterested           // 2 - interested
+	peerNotInterested        // 3 - not interested
+	peerHave                 // 4 - have
+	peerBitfield             // 5 - bitfield
+	peerRequest              // 6 - request
+	peerPiece                // 7 - piece
+	peerCancel               // 8 - cancel
+)
 
 func (t *Torrent) parseTorrentFile(filename string) (err error) {
 	t.File = filename
@@ -179,8 +132,8 @@ func (t *Torrent) buildAnnounceURL(event string) (url *url.URL) {
 	return
 }
 
-func (t *Torrent) AnnounceStart() {
-	url := t.buildAnnounceURL(eventStarted)
+func (t *Torrent) announce(event string) (resp *http.Response) {
+	url := t.buildAnnounceURL(event)
 
 	client := &http.Client{}
 	fmt.Printf("GET: %s\n", url.String())
@@ -191,11 +144,18 @@ func (t *Torrent) AnnounceStart() {
 	req.Header.Add("Accept-Encoding", "gzip")
 	req.Header.Add("Connection", "close")
 
-	resp, err := client.Do(req)
+	resp, err = client.Do(req)
 	handleError(err)
 
+	return
+}
+
+// AnnounceStart announces the starting of the download phase
+func (t *Torrent) AnnounceStart() {
+	resp := t.announce(eventStarted)
 	defer resp.Body.Close()
 
+	var err error
 	t.Response.Body, err = ioutil.ReadAll(resp.Body)
 	handleError(err)
 
@@ -209,4 +169,28 @@ func (t *Torrent) AnnounceStart() {
 
 	err = bencode.Unmarshal(&b, &t.Response)
 	handleError(err)
+}
+
+// AnnounceStop announces the stop of the download phase
+func (t *Torrent) AnnounceStop() {
+	resp := t.announce(eventStopped)
+	defer resp.Body.Close()
+
+	var err error
+	t.Response.Body, err = ioutil.ReadAll(resp.Body)
+	handleError(err)
+
+	prettyPrint(t.Response.Body)
+}
+
+// AnnounceComplete announces the completion of the download phase
+func (t *Torrent) AnnounceComplete() {
+	resp := t.announce(eventCompleted)
+	defer resp.Body.Close()
+
+	var err error
+	t.Response.Body, err = ioutil.ReadAll(resp.Body)
+	handleError(err)
+
+	prettyPrint(t.Response.Body)
 }
