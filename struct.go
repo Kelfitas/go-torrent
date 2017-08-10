@@ -1,5 +1,7 @@
 package main
 
+import "net"
+
 type FileDict struct {
 	Length int64    `bencode:"length"`
 	Path   []string `bencode:"path"`
@@ -31,18 +33,19 @@ type MetaInfo struct {
 	Encoding     string
 }
 
-type PeerDict struct {
+type Peer struct {
 	PeerID  string `bencode:"peer id"`
 	IP      string `bencode:"ip"`
 	Port    int    `bencode:"port"`
+	conn    net.Conn
 	message uint8
 }
 
 type AnnounceResponse struct {
-	FailureReason string     `bencode:"failure reason"`
-	MinInterval   int64      `bencode:"min interval"`
-	Interval      int64      `bencode:"interval"`
-	Peers         []PeerDict `bencode:"peers"`
+	FailureReason string `bencode:"failure reason"`
+	MinInterval   int64  `bencode:"min interval"`
+	Interval      int64  `bencode:"interval"`
+	Peers         []Peer `bencode:"peers"`
 	Body          []byte
 }
 

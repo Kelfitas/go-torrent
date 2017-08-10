@@ -1,7 +1,7 @@
 APP_NAME=go-torrent
 
-install:
-	go get $(INSTALL_ARGS)
+install: glide.yaml
+	glide install $(INSTALL_ARGS)
 
 run: install
 	go run $(RUN_ARGS) *.go
@@ -9,6 +9,9 @@ run: install
 build: install
 	GOOS=$(GOOS) GOARCH=$(GOARCH) \
     go build $(BUILD_ARGS) *.go
+
+test:
+	go test $(glide novendor)
 
 build-win32: GOOS=windows
 build-win32: GOARCH=386

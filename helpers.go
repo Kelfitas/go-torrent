@@ -63,12 +63,20 @@ func isTCPPortAvailable(port int) bool {
 	return true
 }
 
+var listenPort int
+
 func getListenPort() (port int, err error) {
+	if listenPort != 0 {
+		port = listenPort
+		return
+	}
+
 	start := 6881
 	end := 6889
 
 	for port = start; port <= end; port++ {
 		if isTCPPortAvailable(port) {
+			listenPort = port
 			return
 		}
 	}

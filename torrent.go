@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -76,7 +77,7 @@ func (t *Torrent) parseCompactResponse() {
 		byteNo := i % 6
 
 		if byteNo == 0 && i > 0 {
-			t.Response.Peers = append(t.Response.Peers, PeerDict{
+			t.Response.Peers = append(t.Response.Peers, Peer{
 				IP:   ip,
 				Port: port,
 			})
@@ -110,9 +111,11 @@ func (t *Torrent) buildAnnounceURL(event string) (url *url.URL) {
 	listenPort, err := getListenPort()
 	handleError(err)
 
+	peerID := getPeerID()
+
 	u := t.Meta.Announce
 	u += "?info_hash=" + t.getInfoHash()
-	u += "&peer_id=" + getPeerID()
+	u += "&peer_id=" + peerID
 	u += "&port=" + strconv.Itoa(listenPort)
 	u += "&uploaded=" + strconv.Itoa(t.Stats.Uploaded)
 	u += "&downloaded=" + strconv.Itoa(t.Stats.Downloaded)
@@ -193,4 +196,30 @@ func (t *Torrent) AnnounceComplete() {
 	handleError(err)
 
 	prettyPrint(t.Response.Body)
+}
+
+func (t *Torrent) Listen() {
+	listenPort, err := getListenPort()
+	handleError(err)
+
+	fmt.Printf("Listening on: %d", listenPort)
+
+	ln, err := net.Listen("tcp", ":"+strconv.Itoa(listenPort))
+	handleError(err)
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			fmt.Printf("Err: %s", err.Error())
+		}
+		go handleConnection(conn)
+	}
+}
+
+func handleConnection(conn net.Conn) {
+	fmt.Printf("Connection IP: %s", conn.RemoteAddr().String())
+	status, err := bufio.NewReader(conn).ReadString('\n')
+	handleError(err)
+	fmt.Printf("Status: %s", status)
+	// fmt.Fprintf(conn, "GET / HTTP/1.0\r\n\r\n")
 }

@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 const (
 	eventStarted   = "started"
 	eventCompleted = "completed"
@@ -17,6 +19,22 @@ func main() {
 
 	torrent[0].AnnounceStart()
 	prettyPrint(torrent[0].Response)
+	prettyPrint(torrent[0].buildAnnounceURL(eventStarted).String())
+
+	// go torrent[0].Listen()
+
+	for i := 0; i < len(torrent[0].Response.Peers); i++ {
+		p := &torrent[0].Response.Peers[i]
+		if p.Port != 0 {
+			err := p.connect()
+
+			fmt.Println(err)
+
+			if err == nil {
+				break
+			}
+		}
+	}
 }
 
 // announce — the URL of the tracker

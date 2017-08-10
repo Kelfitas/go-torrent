@@ -1,0 +1,6 @@
+hash: ffbab17b9cdc538558ec84d77c4b99681ea0d4d14a35d0d086ad6bc2f0c59b60
+updated: 2017-07-20T10:39:36.080101307+03:00
+imports:
+- name: github.com/jackpal/bencode-go
+  version: 8b8d9a9b37fcd43f365439810d725081b114af68
+testImports: []
